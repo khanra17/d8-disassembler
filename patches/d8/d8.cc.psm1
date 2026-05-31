@@ -3,6 +3,12 @@ Import-Module (Join-Path $PSScriptRoot "..\utils.psm1")
 function Patch {
     param([string]$Content)
 
+    $Content = Add-LineBelow -Content $Content `
+        -Patterns @('#include .+') `
+        -Insert @"
+#include <cstring>
+"@
+
     $Content = Edit-FunctionBody -Content $Content `
         -FunctionName "Local<ObjectTemplate> Shell::CreateGlobalTemplate" `
         -Converter {
@@ -11,15 +17,21 @@ function Patch {
             -Insert @"
   global_template->Set(isolate, "loadBytecode",
                        FunctionTemplate::New(isolate, LoadBytecode));
+  global_template->Set(isolate, "dumpOpcodes",
+                       FunctionTemplate::New(isolate, DumpOpcodes));
 "@
         return $Body
     }
 
-    $disassemble = Join-Path $PSScriptRoot "disassemble.cc"
-    $disassemble = Get-Content -Path $disassemble -Raw
+    $implements = Get-Content `
+        -Path (Join-Path $PSScriptRoot "disassemble.cc") `
+        -Raw
+    $implements += Get-Content `
+        -Path (Join-Path $PSScriptRoot "metadata.cc") `
+        -Raw
     $Content = Add-LineBelow -Content $Content `
         -Patterns @('void Shell::Print\(', '^}$') `
-        -Insert $disassemble
+        -Insert $implements
 
     return $Content
 }
