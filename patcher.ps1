@@ -5,6 +5,21 @@ param (
 $patchesRoot = Join-Path $PSScriptRoot "patches"
 $sourceRoot = Join-Path $PSScriptRoot "target\v8\src"
 
+function Set-ContentIfChanged {
+    param (
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Content
+    )
+
+    if ((Test-Path $Path) -and (Get-Content $Path -Raw) -eq $Content)
+    {
+        return $false
+    }
+
+    Set-Content -Path $Path -Value $Content -NoNewline
+    return $true
+}
+
 function Restore-PatchedFile {
     param (
         [string]$SourcePath,
@@ -12,7 +27,8 @@ function Restore-PatchedFile {
         [string]$BackupPath
     )
 
-    if (Test-Path $BackupPath) {
+    if (Test-Path $BackupPath)
+    {
         Copy-Item -Path $BackupPath -Destination $SourcePath -Force
         Remove-Item -Path $BackupPath -Force
         Write-Host "Restored '$SourcePathRelative'."
@@ -31,30 +47,33 @@ function Out-PatchedFile {
         [string]$BackupPath
     )
 
-    if (Test-Path $BackupPath)
-    {
-        Write-Warning "Source file '$SourcePath' has already patched."
-    }
-    elseif (Test-Path $SourcePath)
-    {
-        Copy-Item -Path $SourcePath -Destination $BackupPath -Force
-
-        Import-Module $ModulePath -Force
-        $content = Get-Content $SourcePath -Raw
-        $content = Patch $content
-        Set-Content -Path $SourcePath -Value $content
-
-        $diff = git -c core.safecrlf=false --no-pager `
-            diff --no-index --ignore-all-space --ignore-blank-lines --color=always `
-            "$BackupPath" "$SourcePath" 2>&1
-        $diff -split "`n" | Select-Object -Skip 2
-        Write-Host -ForegroundColor Yellow "Patched '$SourcePathRelative'."
-        Write-Host
-    }
-    else
+    if (-not (Test-Path $SourcePath))
     {
         Write-Warning "Source file '$SourcePath' does not exist for patch '$ModulePath'."
+        return
     }
+
+    if (-not (Test-Path $BackupPath))
+    {
+        Copy-Item -Path $SourcePath -Destination $BackupPath -Force
+    }
+
+    Import-Module $ModulePath -Force
+    $content = Get-Content $BackupPath -Raw
+    $content = Patch $content
+    $changed = Set-ContentIfChanged -Path $SourcePath -Content $content
+    if (-not $changed)
+    {
+        Write-Host "Unchanged '$SourcePathRelative'."
+        return
+    }
+
+    $diff = git -c core.safecrlf=false --no-pager `
+        diff --no-index --ignore-all-space --ignore-blank-lines --color=always `
+        "$BackupPath" "$SourcePath" 2>&1
+    $diff -split "`n" | Select-Object -Skip 2
+    Write-Host -ForegroundColor Yellow "Patched '$SourcePathRelative'."
+    Write-Host
 }
 
 Get-ChildItem -Path $patchesRoot -Recurse -Filter "*.psm1" |

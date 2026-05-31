@@ -16,6 +16,7 @@ $buildName = "out.gn\x64.release"
 $buildPath = Join-Path $v8Path $buildName
 $argsSource = Join-Path $PSScriptRoot "args.gn"
 $argsTarget = Join-Path $buildPath "args.gn"
+$buildNinjaPath = Join-Path $buildPath "build.ninja"
 
 Write-Host "[*] Checking build environment" -ForegroundColor Cyan
 if (-not (Test-Path (Join-Path $v8Path ".git"))) {
@@ -46,10 +47,20 @@ if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
 
 Write-Host "[*] Building D8 -- -j $Jobs" -ForegroundColor Cyan
 New-Item -ItemType Directory -Path $buildPath -Force | Out-Null
-Copy-Item -Path $argsSource -Destination $argsTarget -Force
+if (-not (Test-Path $argsSource) -or -not (Test-Path $argsTarget)) {
+    $gnArgsChanged = $true
+}
+else {
+    $gnArgsChanged = (Get-FileHash -Path $argsSource).Hash -ne (Get-FileHash -Path $argsTarget).Hash
+}
+if ($gnArgsChanged) {
+    Copy-Item -Path $argsSource -Destination $argsTarget -Force
+}
 try {
     Push-Location $v8Path
-    gn gen $buildName
+    if ($gnArgsChanged -or -not (Test-Path $buildNinjaPath)) {
+        gn gen $buildName
+    }
     ninja -C $buildName -j $Jobs d8
 }
 finally {
