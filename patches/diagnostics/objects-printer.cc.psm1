@@ -10,6 +10,16 @@ function Patch {
         $Body = Set-CommentLine -Content $Body -Pattern "\s*PrintSourceCode\(os\);"
         $Body += "`n"
         $Body += @"
+  os << "\nStart ScopeInfoChain\n";
+  Tagged<ScopeInfo> current_scope_info = this->scope_info();
+  for (int scope_depth = 0; scope_depth < 64; ++scope_depth) {
+    os << "\nStart ScopeInfo depth " << scope_depth << "\n";
+    current_scope_info->ScopeInfoPrint(os);
+    os << "End ScopeInfo depth " << scope_depth << "\n";
+    if (!current_scope_info->HasOuterScopeInfo()) break;
+    current_scope_info = current_scope_info->OuterScopeInfo();
+  }
+  os << "\nEnd ScopeInfoChain\n";
   os << "\nStart BytecodeArray\n";
   if (isolate != nullptr && this->HasBytecodeArray()) {
     this->GetActiveBytecodeArray(isolate)->Disassemble(os);
