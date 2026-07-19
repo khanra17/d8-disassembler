@@ -26,7 +26,7 @@ function Patch {
         param($Body)
         return @"
   if (end < 0) end = length();
-  StringCharacterStream stream(this, start);
+  StringCharacterStream stream(*this, start);
   for (int i = start; i < end && stream.HasMore(); i++) {
     uint16_t c = stream.GetNext();
     if (c == '\n') {
