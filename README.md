@@ -4,7 +4,7 @@
 .\target\v8\out.gn\x64.release\d8.exe `
   --no-lazy `
   --no-flush-bytecode `
-  --snapshot_blob .\v8_context_snapshot.bin `
+  --snapshot_blob .\snapshot_blob.bin `
   -e "loadBytecode('.\\index.js.bin')"
 ```
 
