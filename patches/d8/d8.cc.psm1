@@ -7,6 +7,7 @@ function Patch {
         -Patterns @('#include .+') `
         -Insert @"
 #include <cstring>
+#include "src/codegen/script-details.h"
 "@
 
     $Content = Edit-FunctionBody -Content $Content `
